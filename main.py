@@ -3,10 +3,14 @@ from gatool import get_toolbox
 import random
 
 
-def repr_best_sol(toolbox, player_list, num_round, num_court):
-    best_sol = toolbox.selBest(pop)[0]
-    sorted_player = [player_list[i] for i in best_sol]
-    return str(Gym(num_round, num_court, sorted_player))
+def repr_best_sol(pop, player_list, num_round, num_court, num_sol=20):
+    gym_list = []
+    for ind in pop:
+        sorted_player = [player_list[i] for i in ind]
+        gym_list.append(Gym(num_round, num_court, sorted_player))
+    gym_list.sort(key=lambda x: x.score())
+    for idx in range(num_sol):
+        print('Sol{}: '.format(idx + 1) + str(gym_list[idx]))
 
 
 if __name__ == "__main__":
@@ -17,16 +21,20 @@ if __name__ == "__main__":
     for idx in range(num_player):
         name = 'Player{}'.format(idx)
         sex = random.randint(0, 1)
-        level = random.randint(1, 5)
-        player_list.append(Player(name, sex, level))
+        if sex:
+            level = random.randint(1, 4)
+        else:
+            level = random.randint(3, 6)
+        player_list.append(Player(idx, name, sex, level))
 
     for player in player_list:
         print(player)
 
     toolbox = get_toolbox(num_player, num_round * num_court * 4)
 
-    NPOP, NGEN, CXPB, MUTPB = 1000, 100, 0.5, 0.2
-    pop = toolbox.population(n=NPOP)
+    pop_size, gen_num = 100, 1000
+    cx_twopoint_prob, cx_team_prob, mut_prob = 0.5, 0, 0.5
+    pop = toolbox.population(n=pop_size)
 
     fitnesses = list(
         map(
@@ -35,21 +43,27 @@ if __name__ == "__main__":
     for ind, fit in zip(pop, fitnesses):
         ind.fitness.values = fit
 
-    for g in range(NGEN):
-        print('GEN{}'.format(g + 1) + '\n' +
-              repr_best_sol(toolbox, player_list, num_round, num_court))
+    for g in range(gen_num):
+        if g % 10 == 0:
+            print('GEN{}'.format(g))
+            repr_best_sol(pop, player_list, num_round, num_court)
 
-        offspring = toolbox.select(pop, len(pop))
-        offspring = list(map(toolbox.clone, offspring))
+        offspring = list(map(toolbox.clone, pop))
 
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
-            if random.random() < CXPB:
-                toolbox.mate(child1, child2)
+            if random.random() < cx_twopoint_prob:
+                toolbox.twopointmate(child1, child2)
+                del child1.fitness.values
+                del child2.fitness.values
+
+        for child1, child2 in zip(offspring[::2], offspring[1::2]):
+            if random.random() < cx_team_prob:
+                toolbox.teammate(child1, child2)
                 del child1.fitness.values
                 del child2.fitness.values
 
         for mutant in offspring:
-            if random.random() < MUTPB:
+            if random.random() < mut_prob:
                 toolbox.mutate(mutant)
                 del mutant.fitness.values
 
@@ -61,8 +75,10 @@ if __name__ == "__main__":
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
-        pop[:] = offspring
+        # offspring_survivor = toolbox.select(offspring, pop_size / 2)
+        # pop_survivor = toolbox.select(pop, pop_size / 2)
+        # pop = pop_survivor + offspring_survivor
+        pop = toolbox.select(pop + offspring, pop_size)
 
-    best_sol = toolbox.selBest(pop)[0]
-    sorted_player = [player_list[i] for i in best_sol]
-    print(Gym(num_round, num_court, sorted_player))
+    print('[FINAL]')
+    repr_best_sol(pop, player_list, num_round, num_court)

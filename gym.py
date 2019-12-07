@@ -6,7 +6,8 @@ FEMALE = 1
 
 
 class Player:
-    def __init__(self, name, sex, level):
+    def __init__(self, idx, name, sex, level):
+        self.idx = idx
         self.name = name
         self.sex = sex
         self.level = level
@@ -31,21 +32,21 @@ class Court:
         for player in player_list:
             player.inc_game()
 
-    def sex_score(self):
+    def get_sex_score(self):
         sex_list = list(map(lambda player: player.sex, self.player_list))
         return abs((sex_list[0] + sex_list[1]) - (sex_list[2] + sex_list[3]))
 
-    def level_score(self):
+    def get_level_score(self):
         level_list = list(map(lambda player: player.level, self.player_list))
         return abs((level_list[0] + level_list[1]) -
                    (level_list[2] + level_list[3]))
 
-    def evaluate(self):
-        return self.sex_score() + self.level_score()
+    def get_tup(self):
+        return tuple([player.idx for player in self.player_list])
 
     def __repr__(self):
-        return 'Court{}: [{},{}] vs. [{},{}] (fitness: {})'.format(
-            self.court_idx, *self.player_list, self.evaluate())
+        return 'Court{}: [{},{}] vs. [{},{}]'.format(self.court_idx,
+                                                     *self.player_list)
 
 
 class Round:
@@ -53,18 +54,37 @@ class Round:
         self.round_idx = round_idx
         self.num_court = num_court
         self.court_list = []
-        self.assign_player(player_list)
+        self.player_list = player_list
+        self.assign_player()
 
-    def assign_player(self, player_list):
+    def assign_player(self, ):
         for i in range(self.num_court):
             self.court_list.append(
-                Court(self.round_idx, i + 1, player_list[4 * i:4 * (i + 1)]))
+                Court(self.round_idx, i + 1,
+                      self.player_list[4 * i:4 * (i + 1)]))
 
-    def evaluate(self):
-        return sum(map(Court.evaluate, self.court_list))
+    def get_sex_score(self):
+        return sum(map(Court.get_sex_score, self.court_list))
+
+    def get_level_score(self):
+        return sum(map(Court.get_level_score, self.court_list))
+
+    def get_dup_score(self):
+        dup_dict = {}
+        for player in self.player_list:
+            if player.name in dup_dict:
+                dup_dict[player.name] += 1
+            else:
+                dup_dict[player.name] = 0
+        return sum([v for k, v in dup_dict.items()])
+
+    def get_round_tup(self):
+        return [court.get_tup() for court in self.court_list]
 
     def __repr__(self):
-        ret = 'Round{} (fitness:{})\n'.format(self.round_idx, self.evaluate())
+        ret = 'Round{} (Dup:{}, Sex:{}, Level:{})\n'.format(
+            self.round_idx, self.get_dup_score(), self.get_sex_score(),
+            self.get_level_score())
         cnt = 1
         for court in self.court_list:
             ret += str(court) + '\n'
@@ -91,27 +111,47 @@ class Gym:
                     self.player_list[(4 * self.num_court) *
                                      i:(4 * self.num_court) * (i + 1)]))
 
-    def get_round_score(self):
-        return sum(map(Round.evaluate, self.round_list))
+    def get_sex_score(self):
+        return sum(map(Round.get_sex_score, self.round_list))
+
+    def get_level_score(self):
+        return sum(map(Round.get_level_score, self.round_list))
+
+    def get_dup_score(self):
+        return sum(map(Round.get_dup_score, self.round_list))
+
+    def get_rematch_score(self):
+        court_tup_list = []
+        for round in self.round_list:
+            court_tup_list += round.get_round_tup()
+        return len(court_tup_list) - len(set(court_tup_list))
 
     def get_balance_score(self):
         game_cnt_list = list(map(lambda player: player.game, self.player_list))
         return max(game_cnt_list) - min(game_cnt_list)
 
     def evaluate(self):
-        round_score = self.get_round_score()
-        balance_score = self.get_balance_score()
-        if not round_score or not balance_score:
-            score = math.inf
+        return (self.get_dup_score(), self.get_balance_score(),
+                self.get_sex_score(), self.get_rematch_score(),
+                self.get_level_score())
+
+    def score(self):
+        (dup_score, balance_score, sex_score, rematch_score,
+         level_score) = self.evaluate()
+        if dup_score:
+            return math.inf
         else:
-            score = stats.hmean(
-                [self.get_round_score(),
-                 self.get_balance_score()])
-        return score
+            balance_score += 1
+            sex_score += 1
+            rematch_score += 1
+            level_score += 1
+            return (3 / ((1 / sex_score) + (1 / rematch_score) +
+                         (1 / level_score))) * (balance_score**2)
 
     def __repr__(self):
-        ret = 'fitness:{} (Round:{} + Balance:{})\n'.format(
-            self.evaluate(), self.get_round_score(), self.get_balance_score())
-        for round in self.round_list:
-            ret += str(round) + '\n'
+        ret = 'score:{:.2f}'.format(self.score())
+        ret += ' (Dup:{}, Balance:{}, Sex:{}, Rematch:{}, Level:{})'.format(
+            *self.evaluate())
+        # for round in self.round_list:
+        #     ret += '\n' + str(round)
         return ret
