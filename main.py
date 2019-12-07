@@ -33,7 +33,7 @@ if __name__ == "__main__":
     toolbox = get_toolbox(num_player, num_round * num_court * 4)
 
     pop_size, gen_num = 100, 1000
-    cx_twopoint_prob, cx_team_prob, mut_prob = 0.5, 0, 0.5
+    cx_twopoint_prob, cx_team_prob, mut_prob, next_gen_prob = 0.5, 0, 0.5, 0.2
     pop = toolbox.population(n=pop_size)
 
     fitnesses = list(
@@ -75,10 +75,10 @@ if __name__ == "__main__":
         for ind, fit in zip(invalid_ind, fitnesses):
             ind.fitness.values = fit
 
-        # offspring_survivor = toolbox.select(offspring, pop_size / 2)
-        # pop_survivor = toolbox.select(pop, pop_size / 2)
-        # pop = pop_survivor + offspring_survivor
-        pop = toolbox.select(pop + offspring, pop_size)
+        pop_survivor = toolbox.select(pop, int(pop_size * next_gen_prob))
+        offspring_survivor = toolbox.select(
+            offspring, pop_size - int(pop_size * next_gen_prob))
+        pop = pop_survivor + offspring_survivor
 
     print('[FINAL]')
     repr_best_sol(pop, player_list, num_round, num_court)

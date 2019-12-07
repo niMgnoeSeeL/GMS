@@ -26,7 +26,7 @@ def get_toolbox(idx_size, ind_size):
 
     creator.create('FitnessMulit',
                    base.Fitness,
-                   weights=(-1.0, -100.0, -1.0, -1.0, -1.0))
+                   weights=(-1.0, -1.0, -1.0, -1.0, -1.0))
     creator.create('Individual', list, fitness=creator.FitnessMulit)
 
     toolbox = base.Toolbox()
@@ -41,7 +41,11 @@ def get_toolbox(idx_size, ind_size):
 
     toolbox.register('twopointmate', tools.cxTwoPoint)
     toolbox.register('teammate', cxTeam)
-    toolbox.register('mutate', tools.mutShuffleIndexes, indpb=0.1)
+    toolbox.register('mutate',
+                     tools.mutUniformInt,
+                     low=0,
+                     up=idx_size - 1,
+                     indpb=0.1)
     toolbox.register('select', tools.selNSGA2)
     toolbox.register('evaluate', evaluate)
 

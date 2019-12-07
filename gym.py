@@ -41,8 +41,8 @@ class Court:
         return abs((level_list[0] + level_list[1]) -
                    (level_list[2] + level_list[3]))
 
-    def get_tup(self):
-        return tuple([player.idx for player in self.player_list])
+    def get_set(self):
+        return frozenset([player.idx for player in self.player_list])
 
     def __repr__(self):
         return 'Court{}: [{},{}] vs. [{},{}]'.format(self.court_idx,
@@ -78,8 +78,8 @@ class Round:
                 dup_dict[player.name] = 0
         return sum([v for k, v in dup_dict.items()])
 
-    def get_round_tup(self):
-        return [court.get_tup() for court in self.court_list]
+    def get_round_set(self):
+        return [court.get_set() for court in self.court_list]
 
     def __repr__(self):
         ret = 'Round{} (Dup:{}, Sex:{}, Level:{})\n'.format(
@@ -123,7 +123,7 @@ class Gym:
     def get_rematch_score(self):
         court_tup_list = []
         for round in self.round_list:
-            court_tup_list += round.get_round_tup()
+            court_tup_list += round.get_round_set()
         return len(court_tup_list) - len(set(court_tup_list))
 
     def get_balance_score(self):
