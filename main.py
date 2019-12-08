@@ -3,7 +3,7 @@ from gatool import get_toolbox
 import random
 
 
-def repr_best_sol(pop, player_list, num_round, num_court, num_sol=20):
+def repr_best_sol(pop, player_list, num_round, num_court, num_sol=1):
     gym_list = []
     for ind in pop:
         sorted_player = [player_list[i] for i in ind]
@@ -14,26 +14,35 @@ def repr_best_sol(pop, player_list, num_round, num_court, num_sol=20):
 
 
 if __name__ == "__main__":
-    num_round = 5
-    num_court = 4
-    num_player = 35
+    num_round = 3
+    num_court = 3
+    # num_player = 35
     player_list = []
-    for idx in range(num_player):
-        name = 'Player{}'.format(idx)
-        sex = random.randint(0, 1)
-        if sex:
-            level = random.randint(1, 4)
-        else:
-            level = random.randint(3, 6)
-        player_list.append(Player(idx, name, sex, level))
+    # for idx in range(num_player):
+    #     name = 'Player{}'.format(idx)
+    #     sex = random.randint(0, 1)
+    #     if sex:
+    #         level = random.randint(1, 4)
+    #     else:
+    #         level = random.randint(3, 6)
+    #     player_list.append(Player(idx, name, sex, level))
+    
+    with open('data/20191208.csv') as f:
+        idx = 0
+        for line in f.readlines()[1:]:
+            name, sex, level = line.rstrip().split(',')
+            player_list.append(Player(idx, name, int(sex), int(level)))
+            idx += 1
+    num_player = len(player_list)
 
     for player in player_list:
         print(player)
 
-    toolbox = get_toolbox(num_player, num_round * num_court * 4)
+    toolbox = get_toolbox(num_player, num_round * num_court * 4, mo=True)
 
-    pop_size, gen_num = 100, 1000
-    cx_twopoint_prob, cx_team_prob, mut_prob, next_gen_prob = 0.5, 0, 0.5, 0.2
+    pop_size, gen_num, next_gen_prob = 100, 10000, 0.2
+    cx_twopoint_prob, cx_team_prob = 0.5, 0
+    mut_uni_prob, mut_bal_prob = 0.3, 0.2
     pop = toolbox.population(n=pop_size)
 
     fitnesses = list(
@@ -52,19 +61,24 @@ if __name__ == "__main__":
 
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
             if random.random() < cx_twopoint_prob:
-                toolbox.twopointmate(child1, child2)
+                toolbox.matetwopoint(child1, child2)
                 del child1.fitness.values
                 del child2.fitness.values
 
         for child1, child2 in zip(offspring[::2], offspring[1::2]):
             if random.random() < cx_team_prob:
-                toolbox.teammate(child1, child2)
+                toolbox.mateteam(child1, child2)
                 del child1.fitness.values
                 del child2.fitness.values
 
         for mutant in offspring:
-            if random.random() < mut_prob:
-                toolbox.mutate(mutant)
+            if random.random() < mut_uni_prob:
+                toolbox.mutateuni(mutant)
+                del mutant.fitness.values
+
+        for mutant in offspring:
+            if random.random() < mut_bal_prob:
+                toolbox.mutatebal(mutant, num_player)
                 del mutant.fitness.values
 
         invalid_ind = [ind for ind in offspring if not ind.fitness.valid]

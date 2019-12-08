@@ -1,4 +1,5 @@
 import math
+from statistics import median
 from scipy import stats
 
 MALE = 0
@@ -99,6 +100,7 @@ class Gym:
         self.player_list = player_list
         self.round_list = []
         self.assign_player()
+        self.calculate_fitness()
 
     def assign_player(self):
         for player in self.player_list:
@@ -110,6 +112,13 @@ class Gym:
                     i + 1, self.num_court,
                     self.player_list[(4 * self.num_court) *
                                      i:(4 * self.num_court) * (i + 1)]))
+
+    def calculate_fitness(self):
+        self.sex_score = self.get_sex_score()
+        self.level_score = self.get_level_score()
+        self.dup_score = self.get_dup_score()
+        self.rematch_score = self.get_rematch_score()
+        self.balance_score = self.get_balance_score()
 
     def get_sex_score(self):
         return sum(map(Round.get_sex_score, self.round_list))
@@ -128,30 +137,24 @@ class Gym:
 
     def get_balance_score(self):
         game_cnt_list = list(map(lambda player: player.game, self.player_list))
-        return max(game_cnt_list) - min(game_cnt_list)
+        median_cnt = median(game_cnt_list)
+        return (sum(map(lambda cnt: abs(median_cnt - cnt), game_cnt_list)),
+                max(game_cnt_list) - min(game_cnt_list))
 
     def evaluate(self):
-        return (self.get_dup_score(), self.get_balance_score(),
-                self.get_sex_score(), self.get_rematch_score(),
-                self.get_level_score())
+        return (self.dup_score, self.balance_score[0], self.sex_score,
+                self.rematch_score, self.level_score)
 
     def score(self):
-        (dup_score, balance_score, sex_score, rematch_score,
-         level_score) = self.evaluate()
-        if dup_score:
-            return math.inf
-        else:
-            balance_score += 1
-            sex_score += 1
-            rematch_score += 1
-            level_score += 1
-            return (3 / ((1 / sex_score) + (1 / rematch_score) +
-                         (1 / level_score))) * (balance_score**2)
+        return stats.hmean(
+            (self.dup_score * 5 + 1, self.balance_score[0] + 1,
+             self.sex_score + 1, self.rematch_score + 1, self.level_score + 1))
 
     def __repr__(self):
         ret = 'score:{:.2f}'.format(self.score())
-        ret += ' (Dup:{}, Balance:{}, Sex:{}, Rematch:{}, Level:{})'.format(
-            *self.evaluate())
-        # for round in self.round_list:
-        #     ret += '\n' + str(round)
+        ret += ' (Dup:{}, Balance:{}({}), Sex:{}, Rematch:{}, Level:{})'.format(
+            self.dup_score, self.balance_score[1], self.balance_score[0],
+            self.sex_score, self.rematch_score, self.level_score)
+        for round in self.round_list:
+            ret += '\n' + str(round)
         return ret
